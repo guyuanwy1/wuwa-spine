@@ -1,121 +1,43 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spine立绘播放器</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: transparent;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spine Player</title>
+    <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/spine-player.css">
+    <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife/spine-player.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+        #player-container { width: 100%; height: 100%; }
+    </style>
 </head>
 <body>
-  <canvas id="spineCanvas"></canvas>
-  <script src="https://cdn.jsdelivr.net/npm/@esotericsoftware/spine-canvas@4.2.38/dist/iife/spine-canvas.js"></script>
-  <script>
-    (async function() {
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get('id') || '8250';
-      const basePath = `assets/${id}/`;
-      const jsonFile = `${id}.json`;
-      const atlasFile = `${id}.atlas`;
-
-      const assetManager = new spine.AssetManager();
-
-      try {
-        assetManager.loadText(jsonFile, basePath + jsonFile);
-        assetManager.loadTextureAtlas(atlasFile, basePath + atlasFile);
-      } catch (e) {
-        document.body.innerHTML = '<div style="color:red; padding:20px;">资源加载失败</div>';
-        return;
-      }
-
-      await new Promise((resolve, reject) => {
-        const check = () => {
-          if (assetManager.isLoadingComplete()) resolve();
-          else if (assetManager.hasErrors()) reject(new Error('资源加载出错'));
-          else requestAnimationFrame(check);
-        };
-        check();
-      });
-
-      const atlasText = assetManager.get(atlasFile);
-      const skeletonJson = assetManager.get(jsonFile);
-      if (!atlasText || !skeletonJson) throw new Error('资源未加载');
-
-      const textureLoader = (path) => {
-        return assetManager.get(basePath + path) || assetManager.get(path);
-      };
-      const atlas = new spine.TextureAtlas(atlasText, textureLoader);
-      const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
-      const skeletonJsonReader = new spine.SkeletonJson(atlasLoader);
-      const skeletonData = skeletonJsonReader.readSkeletonData(JSON.parse(skeletonJson));
-
-      const skeleton = new spine.Skeleton(skeletonData);
-      skeleton.setToSetupPose();
-
-      const stateData = new spine.AnimationStateData(skeletonData);
-      const animationState = new spine.AnimationState(stateData);
-      if (skeletonData.animations.length > 0) {
-        animationState.setAnimation(0, skeletonData.animations[0].name, true);
-      }
-
-      const canvas = document.getElementById('spineCanvas');
-      const context = canvas.getContext('2d');
-      const batcher = new spine.SpineCanvas(context);
-
-      function resize() {
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * window.devicePixelRatio;
-        canvas.height = rect.height * window.devicePixelRatio;
-        skeleton.x = canvas.width / 2;
-        skeleton.y = canvas.height * 0.85;
-        skeleton.scaleX = 1;
-        skeleton.scaleY = 1;
-      }
-      window.addEventListener('resize', resize);
-      requestAnimationFrame(() => { resize(); });
-
-      let lastTime = performance.now();
-      function render(now) {
-        requestAnimationFrame(render);
-        const delta = (now - lastTime) / 1000;
-        lastTime = now;
-        animationState.update(Math.min(delta, 0.1));
-        animationState.apply(skeleton);
-        skeleton.updateWorldTransform();
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        batcher.drawSkeleton(skeleton);
-        batcher.drawToContext(context);
-      }
-      requestAnimationFrame(render);
-
-      canvas.addEventListener('click', () => {
-        const currentTrack = animationState.getCurrent(0);
-        if (!currentTrack) return;
-        const anims = skeletonData.animations;
-        const currentIndex = anims.indexOf(currentTrack.animation);
-        const nextIndex = (currentIndex + 1) % anims.length;
-        animationState.setAnimation(0, anims[nextIndex].name, true);
-      });
-
-      window.playAnimation = (name, loop = true) => {
-        animationState.setAnimation(0, name, loop);
-      };
-    })().catch(err => {
-      document.body.innerHTML = `<div style="color:red; padding:20px;">${err.message}</div>`;
-    });
-  </script>
+    <div id="player-container"></div>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const characterId = urlParams.get('id') || 'fuluoluo';
+        const basePath = `assets/${characterId}/`;
+        const jsonUrl = `${basePath}${characterId}.json`;
+        const atlasUrl = `${basePath}${characterId}.atlas`;
+        const imageUrl = `${basePath}${characterId}.png`;
+        const container = document.getElementById('player-container');
+        const player = new spine.SpinePlayer(container, {
+            jsonUrl: jsonUrl,
+            atlasUrl: atlasUrl,
+            animation: 'idle',
+            backgroundColor: '#00000000',
+            viewport: {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 800,
+                padLeft: '10%',
+                padRight: '10%',
+                padTop: '10%',
+                padBottom: '10%'
+            },
+            showControls: false
+        });
+    </script>
 </body>
 </html>
