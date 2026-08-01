@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spine立绘播放器</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="spineCanvas"></canvas>
+  <script src="https://unpkg.com/@esotericsoftware/spine-canvas@4.1.24/dist/iife/index.js"></script>
+  <script>
+    (async function() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id') || '8250';
+      const basePath = `assets/${id}/`;
+      const jsonFile = `${id}.json`;
+      const atlasFile = `${id}.atlas`;
+
+      const assetManager = new spine.canvas.AssetManager();
+
+      try {
+        assetManager.loadText(jsonFile, basePath + jsonFile);
+        assetManager.loadTextureAtlas(atlasFile, basePath + atlasFile);
+      } catch (e) {
+        document.body.innerHTML = '<div style="color:red; padding:20px;">资源加载失败，请检查角色ID或路径</div>';
+        return;
+      }
+
+      await new Promise((resolve, reject) => {
+        const check = () => {
+          if (assetManager.isLoadingComplete()) {
+            resolve();
+          } else if (assetManager.hasErrors()) {
+            reject(new Error('资源加载出错'));
+          } else {
+            requestAnimationFrame(check);
+          }
+        };
+        check();
+      });
+
+      const atlasText = assetManager.get(atlasFile);
+      const skeletonJson = assetManager.get(jsonFile);
+
+      if (!atlasText || !skeletonJson) {
+        throw new Error('无法获取加载完成的资源');
+      }
+
+      const textureLoader = (path) => {
+        return assetManager.get(basePath + path) || assetManager.get(path);
+      };
+      const atlas = new spine.TextureAtlas(atlasText, textureLoader);
+      const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
+      const skeletonJsonReader = new spine.SkeletonJson(atlasLoader);
+      const skeletonData = skeletonJsonReader.readSkeletonData(JSON.parse(skeletonJson));
+
+      const skeleton = new spine.Skeleton(skeletonData);
+      skeleton.setToSetupPose();
+
+      const stateData = new spine.AnimationStateData(skeletonData);
+      const animationState = new spine.AnimationState(stateData);
+
+      if (skeletonData.animations.length > 0) {
+        animationState.setAnimation(0, skeletonData.animations[0].name, true);
+      }
+
+      const canvas = document.getElementById('spineCanvas');
+      const context = canvas.getContext('2d');
+      const shader = spine.canvas.SpineCanvas.newShader(context);
+      const batcher = new spine.canvas.SpineCanvas(context);
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        skeleton.x = canvas.width / 2;
+        skeleton.y = canvas.height * 0.85;
+        skeleton.scaleX = 1;
+        skeleton.scaleY = 1;
+      }
+      window.addEventListener('resize', resize);
+      requestAnimationFrame(() => { resize(); });
+
+      let lastTime = performance.now();
+      function render(now) {
+        requestAnimationFrame(render);
+        const delta = (now - lastTime) / 1000;
+        lastTime = now;
+        const clampedDelta = Math.min(delta, 0.1);
+        animationState.update(clampedDelta);
+        animationState.apply(skeleton);
+        skeleton.updateWorldTransform();
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        batcher.drawSkeleton(skeleton);
+        batcher.drawToContext(context);
+      }
+      requestAnimationFrame(render);
+
+      canvas.addEventListener('click', () => {
+        const currentTrack = animationState.getCurrent(0);
+        if (!currentTrack) return;
+        const anims = skeletonData.animations;
+        const currentIndex = anims.indexOf(currentTrack.animation);
+        const nextIndex = (currentIndex + 1) % anims.length;
+        animationState.setAnimation(0, anims[nextIndex].name, true);
+      });
+
+      window.playAnimation = (name, loop = true) => {
+        animationState.setAnimation(0, name, loop);
+      };
+
+    })().catch(err => {
+      document.body.innerHTML = `<div style="color:red; padding:20px;">初始化失败: ${err.message}</div>`;
+    });
+  </script>
+</body>
+</html>
