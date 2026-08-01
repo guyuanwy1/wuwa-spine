@@ -22,7 +22,7 @@
 </head>
 <body>
   <canvas id="spineCanvas"></canvas>
-  <script src="https://unpkg.com/@esotericsoftware/spine-canvas@4.1.24/dist/iife/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@esotericsoftware/spine-canvas@4.1.24/dist/iife/index.js"></script>
   <script>
     (async function() {
       const params = new URLSearchParams(window.location.search);
@@ -37,29 +37,22 @@
         assetManager.loadText(jsonFile, basePath + jsonFile);
         assetManager.loadTextureAtlas(atlasFile, basePath + atlasFile);
       } catch (e) {
-        document.body.innerHTML = '<div style="color:red; padding:20px;">资源加载失败，请检查角色ID或路径</div>';
+        document.body.innerHTML = '<div style="color:red; padding:20px;">资源加载失败</div>';
         return;
       }
 
       await new Promise((resolve, reject) => {
         const check = () => {
-          if (assetManager.isLoadingComplete()) {
-            resolve();
-          } else if (assetManager.hasErrors()) {
-            reject(new Error('资源加载出错'));
-          } else {
-            requestAnimationFrame(check);
-          }
+          if (assetManager.isLoadingComplete()) resolve();
+          else if (assetManager.hasErrors()) reject(new Error('资源加载出错'));
+          else requestAnimationFrame(check);
         };
         check();
       });
 
       const atlasText = assetManager.get(atlasFile);
       const skeletonJson = assetManager.get(jsonFile);
-
-      if (!atlasText || !skeletonJson) {
-        throw new Error('无法获取加载完成的资源');
-      }
+      if (!atlasText || !skeletonJson) throw new Error('资源未加载');
 
       const textureLoader = (path) => {
         return assetManager.get(basePath + path) || assetManager.get(path);
@@ -74,7 +67,6 @@
 
       const stateData = new spine.AnimationStateData(skeletonData);
       const animationState = new spine.AnimationState(stateData);
-
       if (skeletonData.animations.length > 0) {
         animationState.setAnimation(0, skeletonData.animations[0].name, true);
       }
@@ -101,8 +93,7 @@
         requestAnimationFrame(render);
         const delta = (now - lastTime) / 1000;
         lastTime = now;
-        const clampedDelta = Math.min(delta, 0.1);
-        animationState.update(clampedDelta);
+        animationState.update(Math.min(delta, 0.1));
         animationState.apply(skeleton);
         skeleton.updateWorldTransform();
         context.clearRect(0, 0, canvas.width, canvas.height);
@@ -123,9 +114,8 @@
       window.playAnimation = (name, loop = true) => {
         animationState.setAnimation(0, name, loop);
       };
-
     })().catch(err => {
-      document.body.innerHTML = `<div style="color:red; padding:20px;">初始化失败: ${err.message}</div>`;
+      document.body.innerHTML = `<div style="color:red; padding:20px;">${err.message}</div>`;
     });
   </script>
 </body>
