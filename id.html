@@ -31,7 +31,7 @@
       const jsonFile = `${id}.json`;
       const atlasFile = `${id}.atlas`;
 
-      const assetManager = new spine.canvas.AssetManager();
+      const assetManager = new spine.AssetManager();
 
       try {
         assetManager.loadText(jsonFile, basePath + jsonFile);
@@ -73,8 +73,7 @@
 
       const canvas = document.getElementById('spineCanvas');
       const context = canvas.getContext('2d');
-      const shader = spine.canvas.SpineCanvas.newShader(context);
-      const batcher = new spine.canvas.SpineCanvas(context);
+      const batcher = new spine.SpineCanvas(context);
 
       function resize() {
         const rect = canvas.getBoundingClientRect();
